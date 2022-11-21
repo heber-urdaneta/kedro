@@ -1,8 +1,8 @@
 """Provides I/O modules for Snowflake."""
 
-__all__ = ["SnowflakeTableDataSet"]
+__all__ = ["SnowParkDataSet"]
 
 from contextlib import suppress
 
 with suppress(ImportError):
-    from .snowflake_dataset import SnowflakeTableDataSet
+    from .snowpark_dataset import SnowParkDataSet

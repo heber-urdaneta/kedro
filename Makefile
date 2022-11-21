@@ -16,6 +16,9 @@ lint:
 test:
 	pytest tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile
 
+test-snowflake-only:
+	pytest tests --no-cov --numprocesses 1 --dist loadfile -m snowflake
+
 test-no-spark:
 	pytest tests --no-cov --ignore tests/extras/datasets/spark --numprocesses 4 --dist loadfile
 
