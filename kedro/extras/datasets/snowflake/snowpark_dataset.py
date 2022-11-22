@@ -1,8 +1,7 @@
 """``AbstractDataSet`` implementation to access Snowflake using Snowpark dataframes
 """
 from copy import deepcopy
-from re import findall
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import pandas as pd
 import snowflake.snowpark as sp
@@ -53,6 +52,7 @@ class SnowParkDataSet(
         schema: str,
         load_args: Dict[str, Any] = None,
         save_args: Dict[str, Any] = None,
+        credentials: Dict[str, Any] = None,
     ) -> None:
         """Creates a new instance of ``SnowParkDataSet``.
 
@@ -88,7 +88,7 @@ class SnowParkDataSet(
         if save_args is not None:
             self._save_args.update(save_args)
 
-        self._session = self._get_session()
+        self._session = self._get_session(credentials)
         self._table_name = table_name
         self._warehouse = warehouse
         self._database = database
@@ -104,7 +104,7 @@ class SnowParkDataSet(
 
     # TODO: Do we want to make it static method?
     @staticmethod
-    def _get_session() -> sp.Session:
+    def _get_session(credentials) -> sp.Session:
         """Given a connection string, create singleton connection
         to be used across all instances of `SnowParkDataSet` that
         need to connect to the same source.
@@ -118,7 +118,15 @@ class SnowParkDataSet(
                 "schema": "" (optional)
                 }
         """
-        return sp.context.get_active_session()
+        try:
+            # if hook is implemented, get active session
+            session = sp.context.get_active_session()
+        except sp.exceptions.SnowparkSessionException:
+            if not credentials:
+                raise DataSetError("'credentials' argument cannot be empty.")
+            # create session if there is no active one
+            session = sp.Session.builder.configs(credentials).create()
+        return session
 
     def _load(self) -> sp.DataFrame:
         table_name = [
