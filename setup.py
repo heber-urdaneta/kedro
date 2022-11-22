@@ -90,6 +90,9 @@ spark_require = {
     "spark.SparkJDBCDataSet": [SPARK, HDFS, S3FS],
     "spark.DeltaTableDataSet": [SPARK, HDFS, S3FS, "delta-spark>=1.0, <3.0"],
 }
+snowpark_require = {
+    "snowflake.SnowParkDataSet": ["snowflake-snowpark-python~=1.0.0", "pyarrow>=8.0, <9.0"]
+}
 tensorflow_required = {
     "tensorflow.TensorflowModelDataset": [
         # currently only TensorFlow V2 supported for saving and loading.
@@ -125,6 +128,7 @@ extras_require = {
     "plotly": _collect_requirements(plotly_require),
     "redis": _collect_requirements(redis_require),
     "spark": _collect_requirements(spark_require),
+    "snowflake": _collect_requirements(snowpark_require),
     "tensorflow": _collect_requirements(tensorflow_required),
     "yaml": _collect_requirements(yaml_require),
     **api_require,
@@ -138,6 +142,7 @@ extras_require = {
     **pillow_require,
     **plotly_require,
     **spark_require,
+    **snowpark_require,
     **tensorflow_required,
     **yaml_require,
 }

@@ -1,66 +1,12 @@
 """``AbstractDataSet`` implementation to access Snowflake using Snowpark dataframes
 """
 from copy import deepcopy
-from re import findall
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import pandas as pd
 import snowflake.snowpark as sp
 
 from kedro.io.core import AbstractDataSet, DataSetError
-
-KNOWN_PIP_INSTALL = {
-    "snowflake.snowpark": "snowflake.snowpark",
-}
-
-DRIVER_ERROR_MESSAGE = """
-A module/driver is missing when connecting to Snowflake
-\n\n
-"""
-
-
-def _find_known_drivers(module_import_error: ImportError) -> Optional[str]:
-    """Looks up known keywords in a ``ModuleNotFoundError`` so that it can
-    provide better guideline for the user.
-
-    Args:
-        module_import_error: Error raised while connecting to a SQL server.
-
-    Returns:
-        Instructions for installing missing driver. An empty string is
-        returned in case error is related to an unknown driver.
-
-    """
-
-    # module errors contain string "No module name 'module_name'"
-    # we are trying to extract module_name surrounded by quotes here
-    res = findall(r"'(.*?)'", str(module_import_error.args[0]).lower())
-
-    # in case module import error does not match our expected pattern
-    # we have no recommendation
-    if not res:
-        return None
-
-    missing_module = res[0]
-
-    if KNOWN_PIP_INSTALL.get(missing_module):
-        return (
-            f"You can also try installing missing driver with\n"
-            f"\npip install {KNOWN_PIP_INSTALL.get(missing_module)}"
-        )
-
-    return None
-
-
-def _get_missing_module_error(import_error: ImportError) -> DataSetError:
-    missing_module_instruction = _find_known_drivers(import_error)
-
-    if missing_module_instruction is None:
-        return DataSetError(
-            f"{DRIVER_ERROR_MESSAGE}Loading failed with error:\n\n{str(import_error)}"
-        )
-
-    return DataSetError(f"{DRIVER_ERROR_MESSAGE}{missing_module_instruction}")
 
 
 # TODO: Update docstring after interface finalised
@@ -134,9 +80,6 @@ class SnowParkDataSet(
         if not schema:
             raise DataSetError("'schema' argument cannot be empty.")
 
-        if not credentials:
-            raise DataSetError("Please configure expected credentials")
-
         # Handle default load and save arguments
         self._load_args = deepcopy(self.DEFAULT_LOAD_ARGS)
         if load_args is not None:
@@ -145,9 +88,7 @@ class SnowParkDataSet(
         if save_args is not None:
             self._save_args.update(save_args)
 
-        self._credentials = credentials["credentials"]
-
-        self._session = self._get_session(self._credentials)
+        self._session = self._get_session(credentials)
         self._table_name = table_name
         self._warehouse = warehouse
         self._database = database
@@ -162,8 +103,8 @@ class SnowParkDataSet(
         )
 
     # TODO: Do we want to make it static method?
-    @classmethod
-    def _get_session(cls, credentials: dict) -> sp.Session:
+    @staticmethod
+    def _get_session(credentials) -> sp.Session:
         """Given a connection string, create singleton connection
         to be used across all instances of `SnowParkDataSet` that
         need to connect to the same source.
@@ -178,11 +119,13 @@ class SnowParkDataSet(
                 }
         """
         try:
+            # if hook is implemented, get active session
+            session = sp.context.get_active_session()
+        except sp.exceptions.SnowparkSessionException:
+            if not credentials:
+                raise DataSetError("'credentials' argument cannot be empty.")
+            # create session if there is no active one
             session = sp.Session.builder.configs(credentials).create()
-        except ImportError as import_error:
-            raise _get_missing_module_error(import_error) from import_error
-        except Exception as exception:
-            raise exception
         return session
 
     def _load(self) -> sp.DataFrame:
